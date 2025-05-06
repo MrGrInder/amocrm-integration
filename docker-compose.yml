@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  php-fpm:
+    build: .
+    image: php:8.1-fpm
+    container_name: amocrm_php
+    working_dir: /var/www/html
+    volumes:
+      - ./:/var/www/html
+      - ./docker/php/conf.d:/usr/local/etc/php/conf.d
+    environment:
+      - APP_ENV=dev
+
+  nginx:
+    image: nginx:1.23-alpine
+    container_name: amocrm_nginx
+    ports:
+      - "8080:80"
+    volumes:
+      - ./:/var/www/html
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d
+    depends_on:
+      - php-fpm
