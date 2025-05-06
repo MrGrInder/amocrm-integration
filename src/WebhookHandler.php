@@ -20,13 +20,17 @@ class WebhookHandler {
         $entityType = $this->normalizeEntityType($data['entity_type']);
         $entityId = (int)$data['entity_id'];
 
-        $noteText = match($data['event_type']) {
+        $noteText = $this->generateNoteText($data, $entityType, $entityId);
+        $this->apiClient->createEntityNote($entityType, $entityId, $noteText);
+    }
+
+    private function generateNoteText(array $data, string $entityType, int $entityId): string
+    {
+        return match($data['event_type']) {
             'add' => $this->handleCreation($entityType, $entityId, $data),
-            'update' => $this->handleUpdate($entityType, $entityId, $data),
+            'update' => $this->handleUpdate($data),
             default => throw new \InvalidArgumentException('Unsupported event type')
         };
-
-        $this->apiClient->createEntityNote($entityType, $entityId, $noteText);
     }
 
     private function handleCreation(string $entityType, int $entityId, array $data): string
@@ -39,6 +43,14 @@ class WebhookHandler {
         );
     }
 
+    private function handleUpdate(array $data): string
+    {
+        return $this->noteGenerator->generateForUpdate(
+            $data['changed_fields'] ?? [],
+            new DateTimeImmutable($data['updated_at'] ?? 'now')
+        );
+    }
+
     private function validateData(array $data): void
     {
         $requiredFields = ['entity_type', 'entity_id', 'event_type'];
@@ -48,5 +60,14 @@ class WebhookHandler {
                 throw new \InvalidArgumentException("Missing required field: $field");
             }
         }
+    }
+
+    private function normalizeEntityType(string $type): string
+    {
+        $allowed = ['leads', 'contacts'];
+        if (!in_array($type, $allowed, true)) {
+            throw new \InvalidArgumentException('Invalid entity type');
+        }
+        return $type;
     }
 }

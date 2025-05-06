@@ -57,6 +57,15 @@ class AmoCRMApiClient {
         }
     }
 
+    private function refreshTokensIfNeeded(): void
+    {
+        $tokens = $this->getStoredTokens();
+
+        if (!$tokens || time() >= ($tokens['expires_at'] ?? 0)) {
+            $this->refreshTokens();
+        }
+    }
+
     private function refreshTokens(): void
     {
         $tokens = $this->getStoredTokens();
@@ -92,6 +101,14 @@ class AmoCRMApiClient {
         );
     }
 
+    private function getStoredTokens(): array
+    {
+        if (!file_exists($this->tokensPath)) {
+            return [];
+        }
+        return json_decode(file_get_contents($this->tokensPath), true) ?: [];
+    }
+
     public function getEntityDetails(string $entityType, int $entityId): array
     {
         $this->refreshTokensIfNeeded();
@@ -108,6 +125,27 @@ class AmoCRMApiClient {
         } catch (GuzzleException $exception) {
             $this->logger->error('API request failed', ['error' => $exception->getMessage()]);
             throw new \RuntimeException('Entity fetch error');
+        }
+    }
+
+    public function createEntityNote(string $entityType, int $entityId, string $text): void
+    {
+        $this->refreshTokensIfNeeded();
+
+        try {
+            $this->client->post("/api/v4/{$entityType}s/{$entityId}/notes", [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $this->getStoredTokens()['access_token']
+                ],
+                'json' => [
+                    'note_type' => 'common',
+                    'params' => ['text' => $text]
+                ]
+            ]);
+
+        } catch (GuzzleException $e) {
+            $this->logger->error('Note creation failed', ['error' => $e->getMessage()]);
+            throw new \RuntimeException('Note creation error');
         }
     }
 }

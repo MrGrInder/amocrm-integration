@@ -6,6 +6,7 @@ namespace App;
 use DateTimeInterface;
 
 class NoteGenerator {
+
     public function generateForCreation(string $entityName, string $responsibleUser, DateTimeInterface $createdAt): string
     {
         return sprintf(
@@ -18,6 +19,10 @@ class NoteGenerator {
 
     public function generateForUpdate(array $changedFields, DateTimeInterface $updatedAt): string
     {
+        if (empty($changedFields)) {
+            throw new \InvalidArgumentException('Changed fields cannot be empty');
+        }
+
         $changes = array_map(
             fn($field) => sprintf("%s: %s", $field['name'], $field['new_value']),
             $changedFields
